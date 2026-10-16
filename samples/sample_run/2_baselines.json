@@ -1,0 +1,34 @@
+{
+  "findings": [
+    {
+      "title": "State-of-the-art claim supported by a single baseline",
+      "type": "missing",
+      "severity": "major",
+      "quote": "Table 1 compares HybridNet with a support vector machine baseline.",
+      "page": 1,
+      "why_it_matters": "Beating one SVM does not show superiority over existing approaches; strong tabular methods such as gradient-boosted trees or random forests are standard on this dataset.",
+      "suggested_fix": "Compare against a simple baseline (logistic regression) and strong tabular models (random forest, gradient boosting) under the same split, preprocessing and tuning budget, or narrow the claim.",
+      "confidence": "high"
+    },
+    {
+      "title": "No ablation study for the three-component architecture",
+      "type": "missing",
+      "severity": "major",
+      "quote": "HybridNet consists of three components: a 1-D convolutional block with 64 filters, an LSTM module with 32 units, and an attention mechanism, followed by a dense output layer.",
+      "page": 1,
+      "why_it_matters": "It is unknown whether the CNN, the LSTM or the attention mechanism is responsible for the result, or whether a simpler model would do as well.",
+      "suggested_fix": "Report results with each component removed or replaced under the same protocol.",
+      "confidence": "high"
+    },
+    {
+      "title": "Tuning effort for the SVM baseline not described",
+      "type": "missing",
+      "severity": "minor",
+      "quote": "Table 1 compares HybridNet with a support vector machine baseline.",
+      "page": 1,
+      "why_it_matters": "If HybridNet was tuned and the SVM was not, the comparison favours HybridNet.",
+      "suggested_fix": "State the SVM kernel and hyperparameter search and give it the same tuning budget.",
+      "confidence": "medium"
+    }
+  ]
+}

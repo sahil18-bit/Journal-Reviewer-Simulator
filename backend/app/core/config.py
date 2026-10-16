@@ -28,6 +28,13 @@ class Settings(BaseSettings):
         default_factory=lambda: ["localhost", "127.0.0.1", "testserver"]
     )
 
+    # Reviewer settings
+    llm_provider: Literal["none", "gemini", "openai", "anthropic"] = "none"
+    llm_api_key: str = Field(default="", repr=False)
+    llm_model: str = ""  # empty = provider default
+    max_upload_mb: int = Field(default=15, ge=1, le=50)
+    max_pages: int = Field(default=40, ge=1, le=200)
+
     @field_validator("api_prefix")
     @classmethod
     def validate_api_prefix(cls, value: str) -> str:

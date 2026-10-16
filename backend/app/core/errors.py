@@ -1,5 +1,7 @@
 """Stable API error response helpers and exception handlers."""
 
+from __future__ import annotations
+
 import logging
 from typing import Any
 

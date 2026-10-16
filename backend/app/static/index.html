@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal Reviewer Simulator</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#6b6b6b; --line:#dedede; --soft:#f6f6f4; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font:16px/1.6 Georgia, "Times New Roman", serif; }
+  .sans, button, input, select { font-family:-apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { text-align:center; padding:48px 16px 8px; }
+  header h1 { margin:0; font-size:34px; letter-spacing:.3px; }
+  header p { margin:8px 0 0; color:var(--muted); font-style:italic; }
+  main { max-width:820px; margin:0 auto; padding:24px 16px 64px; }
+  .drop { border:2px dashed #b5b5b5; border-radius:10px; padding:56px 20px; text-align:center; cursor:pointer; transition:background .15s; }
+  .drop:hover, .drop.over { background:var(--soft); }
+  .drop .big { font-size:20px; font-weight:600; }
+  .drop .file { margin-top:10px; font-size:15px; }
+  .actions { text-align:center; margin-top:18px; }
+  button { font-weight:600; font-size:15px; padding:12px 28px; border-radius:6px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+  button.link { background:none; border:none; color:var(--muted); font-weight:400; font-size:13px; padding:4px; text-decoration:underline; }
+  button:disabled { opacity:.35; cursor:not-allowed; }
+  .muted { color:var(--muted); font-size:14px; }
+  .progress { margin:28px auto 0; max-width:460px; font-size:15px; }
+  .progress li { list-style:none; padding:6px 0; color:#aaa; }
+  .progress li.active { color:var(--ink); font-weight:600; }
+  .progress li.done { color:var(--ink); }
+  .progress li.done::before { content:"\2713  "; }
+  .progress li.active::before { content:"\2192  "; }
+  .err { margin-top:20px; padding:12px 16px; border:1px solid var(--ink); border-radius:6px; }
+  .report { margin-top:36px; }
+  .decision { text-align:center; padding:22px; border:2px solid var(--ink); border-radius:8px; }
+  .decision .label { font:13px -apple-system, Arial, sans-serif; text-transform:uppercase; letter-spacing:2px; color:var(--muted); }
+  .decision .value { font-size:32px; font-weight:bold; margin:4px 0 6px; }
+  h2 { font-size:21px; border-bottom:1px solid var(--line); padding-bottom:6px; margin-top:32px; }
+  .finding { border-left:4px solid var(--ink); padding:10px 16px; margin:14px 0; background:var(--soft); }
+  .finding.minor { border-left-color:#aaa; }
+  .finding h4 { margin:0 0 6px; font-size:17px; }
+  .tag { display:inline-block; font:12px -apple-system, Arial, sans-serif; border:1px solid #999; border-radius:10px; padding:1px 8px; margin-right:6px; color:#444; }
+  blockquote { margin:8px 0; padding-left:12px; border-left:2px solid #bbb; font-style:italic; color:#333; }
+  .note { background:var(--soft); border-left:4px solid var(--ink); padding:10px 16px; margin-top:16px; }
+  .steps { padding:0; margin:0; list-style:none; font-size:14px; }
+  .steps li { padding:6px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:12px; }
+  .steps li span:last-child { color:var(--muted); white-space:nowrap; }
+  footer { text-align:center; margin-top:40px; }
+  .keybox { margin-top:10px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .keybox input, .keybox select { font-size:14px; padding:8px 10px; border:1px solid #bbb; border-radius:6px; }
+  .keybox input { width:320px; max-width:100%; }
+  .hidden { display:none; }
+  @media (max-width:600px) { header h1 { font-size:26px; } .drop { padding:40px 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Journal Reviewer Simulator</h1>
+  <p>Drop a research paper and receive a peer review with a major / minor revision decision</p>
+</header>
+<main>
+  <div id="drop" class="drop sans" tabindex="0" role="button" aria-label="Choose a research paper PDF">
+    <div class="big">Drop your research paper here</div>
+    <div class="muted">PDF, or click to choose a file</div>
+    <div id="fname" class="file"></div>
+    <input id="file" type="file" accept="application/pdf" class="hidden">
+  </div>
+  <div class="actions"><button id="run" disabled>Review paper</button></div>
+
+  <ul id="progress" class="progress sans hidden">
+    <li>Paper analyst reads the paper</li>
+    <li>Methodology, statistics and baseline reviewers</li>
+    <li>Fact check of every quote</li>
+    <li>Handling editor makes the decision</li>
+  </ul>
+  <div id="err" class="err sans hidden"></div>
+  <section id="report" class="report hidden"></section>
+
+  <footer class="sans">
+    <span id="mode" class="muted"></span>
+    <button id="keyToggle" class="link">AI key</button>
+    <div id="keybox" class="keybox hidden">
+      <input id="key" type="password" placeholder="Paste a Gemini, OpenAI or Claude API key" aria-label="API key">
+    </div>
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+let file = null, serverAI = false;
+
+$("key").value = store.get("jrs_key");
+$("key").oninput = () => { store.set("jrs_key", $("key").value.trim()); showMode(); };
+$("keyToggle").onclick = () => $("keybox").classList.toggle("hidden");
+function showMode() {
+  const ai = serverAI || $("key").value.trim();
+  $("mode").textContent = ai ? "AI reviewers on ·" : "No AI key: built-in checklist will be used ·";
+}
+fetch("/api/v1/reviews/config").then(r => r.json()).then(c => { serverAI = c.ai_enabled; showMode(); }).catch(showMode);
+
+function pick(f) {
+  if (!f) return;
+  if (!/\.pdf$/i.test(f.name)) { fail("Please choose a PDF file."); return; }
+  file = f; $("fname").textContent = f.name; $("run").disabled = false; $("err").classList.add("hidden");
+}
+$("drop").onclick = () => $("file").click();
+$("drop").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") $("file").click(); };
+$("file").onchange = (e) => pick(e.target.files[0]);
+$("drop").ondragover = (e) => { e.preventDefault(); $("drop").classList.add("over"); };
+$("drop").ondragleave = () => $("drop").classList.remove("over");
+$("drop").ondrop = (e) => { e.preventDefault(); $("drop").classList.remove("over"); pick(e.dataTransfer.files[0]); };
+
+function fail(msg) { $("err").textContent = msg; $("err").classList.remove("hidden"); }
+let timer = null;
+function startProgress() {
+  const items = [...$("progress").children]; let i = 0;
+  items.forEach(li => li.className = ""); items[0].className = "active";
+  $("progress").classList.remove("hidden");
+  timer = setInterval(() => { if (i < items.length - 1) { items[i].className = "done"; items[++i].className = "active"; } }, 9000);
+}
+function stopProgress() { clearInterval(timer); $("progress").classList.add("hidden"); }
+
+$("run").onclick = async () => {
+  $("report").classList.add("hidden"); $("err").classList.add("hidden");
+  $("run").disabled = true; startProgress();
+  try {
+    const fd = new FormData();
+    fd.append("file", file); fd.append("api_key", $("key").value.trim());
+    const r = await fetch("/api/v1/reviews", { method: "POST", body: fd });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error?.message || "The review could not be produced.");
+    render(body);
+  } catch (e) { fail(e.message); }
+  finally { stopProgress(); $("run").disabled = false; }
+};
+
+function finding(f, cls) {
+  return `<div class="finding ${cls}">
+    <h4>${esc(f.id)}. ${esc(f.title)}</h4>
+    <span class="tag">${esc(f.reviewer)}</span><span class="tag">${f.type === "flaw" ? "flaw" : "missing"}</span><span class="tag">confidence: ${esc(f.confidence)}</span>
+    ${f.quote ? `<blockquote>"${esc(f.quote)}" &mdash; page ${esc(f.page)}</blockquote>` : ""}
+    <p><strong>Why it matters:</strong> ${esc(f.why_it_matters)}</p>
+    <p><strong>Required action:</strong> ${esc(f.suggested_fix)}</p></div>`;
+}
+function render(r) {
+  const list = (a) => a.length ? `<ul>${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "<p>None listed.</p>";
+  $("report").innerHTML = `
+    <div class="decision"><div class="label">Editor's recommendation</div>
+      <div class="value">${esc(r.recommendation)}</div><div>${esc(r.decision_reasoning)}</div></div>
+    ${r.integrity_note ? `<div class="note"><strong>Note to editor:</strong> ${esc(r.integrity_note)}</div>` : ""}
+    <h2>${esc(r.paper.title)}</h2>
+    <p>${esc(r.overall_summary)}</p>
+    <h2>Strengths</h2>${list(r.strengths)}
+    <h2>Major concerns (${r.major_concerns.length})</h2>${r.major_concerns.map(f => finding(f, "")).join("") || "<p>None.</p>"}
+    <h2>Minor concerns (${r.minor_concerns.length})</h2>${r.minor_concerns.map(f => finding(f, "minor")).join("") || "<p>None.</p>"}
+    <h2>Questions to the authors</h2>${r.questions_to_authors.length ? `<ol>${r.questions_to_authors.map(q => `<li>${esc(q)}</li>`).join("")}</ol>` : "<p>None.</p>"}
+    <h2>How this review was produced</h2>
+    <ul class="steps sans">${r.steps.map(s => `<li><span>${esc(s.step)} &middot; <em>${esc(s.patterns)}</em></span><span>${esc(s.note)}</span></li>`).join("")}</ul>
+    <p class="muted"><em>${esc(r.disclaimer)}</em></p>
+    <div class="actions"><button id="dl">Download review</button></div>`;
+  $("report").classList.remove("hidden");
+  $("report").scrollIntoView({ behavior: "smooth" });
+  $("dl").onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([r.markdown], { type: "text/markdown" }));
+    a.download = "review_" + (r.paper.filename || "paper").replace(/\.pdf$/i, "") + ".md"; a.click();
+  };
+}
+</script>
+</body>
+</html>

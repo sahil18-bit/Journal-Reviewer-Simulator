@@ -1,0 +1,44 @@
+{
+  "findings": [
+    {
+      "title": "Scaling and SMOTE applied to the full dataset before the train/test split",
+      "type": "flaw",
+      "severity": "major",
+      "quote": "To handle class imbalance, SMOTE was applied to the full dataset before splitting.",
+      "page": 1,
+      "why_it_matters": "Synthetic samples are interpolated from test records and min-max ranges include test values, so information from the test set leaks into training and the 96.4% accuracy is likely inflated.",
+      "suggested_fix": "Split first; fit imputation, scaling and SMOTE on the training data only (inside each cross-validation fold) and re-report all results.",
+      "confidence": "high"
+    },
+    {
+      "title": "Hyperparameters selected on the test set",
+      "type": "flaw",
+      "severity": "major",
+      "quote": "The number of epochs and the learning rate were selected based on the accuracy obtained on the test set.",
+      "page": 1,
+      "why_it_matters": "Using the test set for tuning makes it part of model development, so the reported test accuracy is no longer an unbiased estimate of performance on new patients.",
+      "suggested_fix": "Use a separate validation split or nested cross-validation for tuning and keep the test set untouched until the final evaluation.",
+      "confidence": "high"
+    },
+    {
+      "title": "Causal claim from a predictive model",
+      "type": "flaw",
+      "severity": "minor",
+      "quote": "Our results show that high glucose levels cause diabetes onset, and the model generalizes to any hospital population.",
+      "page": 1,
+      "why_it_matters": "A classifier trained on observational records shows association, not causation, and one dataset from a single population cannot show generalisation to any hospital.",
+      "suggested_fix": "Rephrase as an association and limit the generalisation claim to the studied dataset, or add external validation on data from other hospitals.",
+      "confidence": "high"
+    },
+    {
+      "title": "Deployment claim without external validation or limitations",
+      "type": "missing",
+      "severity": "minor",
+      "quote": "The proposed approach can be directly deployed in hospitals.",
+      "page": 2,
+      "why_it_matters": "Clinical deployment needs evidence from independent data and a discussion of limitations; the paper has neither.",
+      "suggested_fix": "Remove or soften the deployment claim and add a limitations section (single small dataset, no external validation).",
+      "confidence": "medium"
+    }
+  ]
+}

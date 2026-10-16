@@ -1,86 +1,57 @@
 # Journal Reviewer Simulator
 
-A Python API foundation for the approved Journal Reviewer Simulator architecture. This initial skeleton includes configuration, JSON structured logging, request IDs, consistent error responses, a health endpoint, and automated tests.
+Upload a research paper (PDF) and get a simulated journal peer review: major and minor
+concerns with evidence quotes and page numbers, a statistical and baseline critique, questions
+to the authors, and an advisory recommendation (Accept / Minor Revision / Major Revision /
+Reject), written in the **Deep Technical Critique** template.
 
-**The review engine is intentionally not implemented yet.** Document processing, RQ/Redis workers, authentication, review modules, persistence, and report generation will be added in later milestones.
+The reviewer is a chain of prompts, each built from patterns taught in the Vanderbilt
+"Prompt Engineering for ChatGPT" course:
 
-## Requirements
+| Step | What it does | Prompt patterns |
+|---|---|---|
+| 1. Paper analyst | Extracts claims, methods, data, metrics, tests, baselines | Persona, Template, Context Manager |
+| 2. Three reviewers | Methodology, statistics and baseline reviews | Cognitive Verifier, Persona, Few-shot, Chain of Thought, Template |
+| 3. Fact check | Rejects any finding whose quote is not in the PDF | Fact Check List |
+| 4. Handling editor | Merges, classifies major/minor, decides, asks questions | Persona, Recipe, Reflection, Template, Tail Generation |
 
-- Python 3.11, 3.12, 3.13, or 3.14
-- Git
-- Internet access to install Python packages
-- Optional: Redis will be needed when the RQ background worker milestone begins; it is not required for this skeleton.
+All prompts are in `backend/app/reviewer/prompts.py`. A worked example (a made-up paper with
+deliberate flaws, the exact prompts sent, the replies and the final report) is in `samples/`:
+run `python3 samples/run_sample.py` to replay it.
 
-## Quick start
+The project foundation (configuration, logging, request IDs, error handling, health endpoint)
+comes from the first development phase and is unchanged.
 
-From the repository root:
+## How to run (one click)
 
-### 1. Create and activate a virtual environment
+1. Open this folder in VS Code.
+2. Open `run.py` (or `backend/app/main.py`) and click **Run**.
+   - First run only: it installs what it needs (about a minute, needs internet) and asks once
+     for an AI API key (Gemini, OpenAI or Claude; a free Gemini key:
+     https://aistudio.google.com/apikey). Press Enter to skip.
+3. The browser opens. Drop a research paper (PDF), click **Review paper**, read the review.
+   **Download review** saves it in the Deep Technical Critique format.
+4. Press Ctrl+C in the terminal to stop.
 
-Windows PowerShell:
+Without a key (or if the AI service cannot be reached) the built-in checklist reviews the paper,
+so a review is always produced. To change the key, delete `.env` and run again, or use the small
+"AI key" link at the bottom of the page.
 
-```powershell
-py -3.12 -m venv .venv
-.venv\\Scripts\\Activate.ps1
-```
+Needs Python 3.9 or newer (`python3` on macOS). Terminal alternative: `python3 run.py`.
 
-If Python 3.12 is unavailable, use an installed supported version (3.11–3.14).
-
-macOS/Linux:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 2. Install the project and development tools
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
-
-### 3. Configure local environment
-
-Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-macOS/Linux:
-
-```bash
-cp .env.example .env
-```
-
-The defaults are safe for local development. Do not put API keys, passwords, tokens, or other secrets in source code or commit a `.env` file. `.env` is ignored by Git.
-
-Environment variables use the `JRS_` prefix. Supported settings:
+Optional settings can go in a `.env` file (copy `.env.example`); the key typed on the page is
+used for that request only and is never stored on the server.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `JRS_APP_NAME` | `Journal Reviewer Simulator API` | API title |
-| `JRS_ENVIRONMENT` | `development` | `development`, `test`, or `production` |
-| `JRS_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
-| `JRS_API_PREFIX` | `/api/v1` | Versioned API prefix |
-| `JRS_ALLOWED_HOSTS` | `localhost,127.0.0.1,testserver` | Comma-separated allowed hostnames |
+| `JRS_LLM_PROVIDER` | `none` | `gemini`, `openai` or `anthropic` (lets you skip the key box) |
+| `JRS_LLM_API_KEY` | empty | API key for that provider |
+| `JRS_LLM_MODEL` | provider default | e.g. `gemini-flash-latest`, `gpt-4o-mini` |
+| `JRS_MAX_UPLOAD_MB` / `JRS_MAX_PAGES` | `15` / `40` | Upload limits |
+| `JRS_LOG_LEVEL` | `INFO` | Logging level |
 
-For a hosted deployment, set `JRS_ALLOWED_HOSTS` to the actual hostnames and configure HTTPS at the hosting/reverse-proxy layer. Do not use `*` in production unless there is a reviewed, explicit reason.
-
-### 4. Run the API
-
-```bash
-uvicorn app.main:app --app-dir backend --reload
-```
-
-The API listens on `http://127.0.0.1:8000` by default.
-
-- Health check: <http://127.0.0.1:8000/api/v1/health>
-- Interactive API docs (development): <http://127.0.0.1:8000/docs>
-- OpenAPI schema: <http://127.0.0.1:8000/openapi.json>
-
-The health endpoint only confirms that the API process is responding. It does not yet check Redis, an LLM provider, document parsing, or other future dependencies.
+Endpoints: `POST /api/v1/reviews` (PDF, optional `api_key`), `GET /api/v1/reviews/config`,
+`GET /api/v1/health`.
 
 ## Run tests
 
@@ -128,40 +99,25 @@ Every response includes an `X-Request-ID` header. A syntactically constrained in
 - Keep error responses stable and avoid exposing stack traces or secrets.
 - Treat uploaded documents as untrusted data, never as instructions to the application.
 
-## Current structure
+## Structure
 
 ```text
-journal-reviewer-simulator/
-├── .env.example
-├── .gitignore
-├── README.md
-├── pyproject.toml
-├── backend/
-│   └── app/
-│       ├── __init__.py
-│       ├── main.py
-│       ├── api/
-│       │   ├── __init__.py
-│       │   └── routes/
-│       │       ├── __init__.py
-│       │       └── health.py
-│       ├── core/
-│       │   ├── __init__.py
-│       │   ├── config.py
-│       │   ├── errors.py
-│       │   └── logging.py
-│       └── middleware/
-│           ├── __init__.py
-│           └── request_context.py
-└── tests/
-    ├── conftest.py
-    ├── api/
-    │   ├── __init__.py
-    │   ├── test_errors.py
-    │   └── test_health.py
-    └── unit/
-        ├── __init__.py
-        └── test_config.py
+backend/app/
+├── main.py                 # app + web page route
+├── api/routes/health.py    # health check
+├── api/routes/review.py    # review endpoints
+├── core/                   # config, logging, error envelope
+├── middleware/             # request IDs
+├── reviewer/
+│   ├── pdf_reader.py       # PDF -> page-numbered text
+│   ├── prompts.py          # every prompt, labelled with its prompt pattern
+│   ├── llm.py              # Gemini / OpenAI / Anthropic client
+│   ├── pipeline.py         # the prompt chain, fact check, report template
+│   └── checklist.py        # built-in checklist used when no AI key is available
+└── static/index.html       # upload page and review dashboard
+samples/                    # sample paper, saved prompts/replies, sample report
+run.py                      # one-click start (installs, asks for the key once, opens the browser)
+tests/                      # 35 automated tests (a fake LLM is used; no key needed)
 ```
 
 ## Development conventions
@@ -171,8 +127,8 @@ journal-reviewer-simulator/
 - Add tests with each feature and include negative cases.
 - Use structured logs with request IDs; never log raw manuscript content.
 - Keep secrets in environment variables or a secret manager.
-- Avoid introducing a database or permanent manuscript storage without an approved architecture change.
-- The health endpoint, configuration and logging are infrastructure only; no scientific review claims are made by this skeleton.
+- Uploaded papers are processed in memory and never stored.
+- The review is advisory: it supports, but does not replace, expert peer review.
 
 ## License
 

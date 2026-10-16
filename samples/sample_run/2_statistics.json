@@ -1,0 +1,34 @@
+{
+  "findings": [
+    {
+      "title": "Significance claimed without any statistical test",
+      "type": "missing",
+      "severity": "major",
+      "quote": "HybridNet achieves 96.4% accuracy compared with 89.1% for the SVM, which is a significant improvement.",
+      "page": 1,
+      "why_it_matters": "No test, p-value or interval is reported, so 'significant' is not supported; with a test set of about 154 records the difference could partly reflect chance.",
+      "suggested_fix": "Use repeated stratified cross-validation and a paired test (e.g. Wilcoxon signed-rank over folds) or McNemar's test on the same test predictions, and report the statistic and p-value.",
+      "confidence": "high"
+    },
+    {
+      "title": "Single-run results without variability",
+      "type": "missing",
+      "severity": "major",
+      "quote": "The data were then split into 80% training and 20% testing sets.",
+      "page": 1,
+      "why_it_matters": "Results come from one split and one training run; deep models vary with the random seed and split, so the reported accuracy may not be stable.",
+      "suggested_fix": "Repeat training over several seeds or folds and report mean ± standard deviation or 95% confidence intervals.",
+      "confidence": "high"
+    },
+    {
+      "title": "Accuracy as the only metric on imbalanced data",
+      "type": "flaw",
+      "severity": "major",
+      "quote": "The dataset is imbalanced, with 268 positive and 500 negative cases.",
+      "page": 1,
+      "why_it_matters": "With 65% negative cases, accuracy hides how many diabetic patients are missed, which is what matters clinically.",
+      "suggested_fix": "Report sensitivity (recall), specificity, precision, F1 and ROC-AUC, with a confusion matrix.",
+      "confidence": "high"
+    }
+  ]
+}
